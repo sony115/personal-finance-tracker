@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Transactions - Finance Tracker
+{% endblock %}
+
+{% block content %}
+<style>
+    .popup {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+    }
+
+    .popup-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        width: 400px;
+    }
+
+    .close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+    }
+</style>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <h2>Transactions</h2>
+    </div>
+    <div class="col-md-6 text-end">
+        <button class="btn btn-primary" onclick="openPopup()">Add Transaction</button>
+        <button class="btn btn-success" onclick="downloadCSV()"><i class="fa-solid fa-file-arrow-down"></i> CSV</button>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-6">
+        <select id="categoryFilter" class="form-select d-inline-block w-auto">
+            <option value="">All Categories</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Food">Food</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Education">Education</option>
+            <option value="Travel expenses">Travel expenses</option>
+            <option value="Gifts">Gifts</option>
+            <option value="Rent">Rent</option>
+            <option value="Subscriptions">Subscriptions</option>
+        </select>
+        <button class="btn btn-primary ms-2" onclick="filterTransactions()">Filter</button>
+        <button class="btn btn-secondary ms-2" onclick="resetFilter()">Reset</button>
+    </div>
+</div>
+
+<div class="table-responsive mt-4">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Income</th>
+                <th>Spent</th>
+                <th>Payment Method</th>
+                <th>Notes</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr data-transaction='{{ transaction | tojson | safe }}'>
+                <td>{{ transaction[5] }}</td>
+                <td>{{ transaction[4] }}</td>
+                <td>₹{{ transaction[2] if transaction[7] else 0 }}</td>
+                <td>₹{{ transaction[3] if transaction[2] else 0 }}</td>
+                <td>{{ transaction[7] }}</td>
+                <td>{{ transaction[6] }}</td>
+                <td>
+                    <button class="btn btn-warning" onclick="editTransaction(this)"><i class="fas fa-edit"></i></button>
+                    <form action="{{ url_for('delete_transaction', transaction_id=transaction[0]) }}" method="post" style="display:inline;">
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-trash-alt"></i></button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Popup window -->
+<div id="popup" class="popup">
+    <div class="popup-content p-4">
+        <span class="close" onclick="closePopup()">&times;</span>
+        <form id="transactionForm" action="{{ url_for('add_transaction') }}" method="post">
+            <div class="mb-3">
+                <label for="date" class="form-label">Date:</label>
+                <input type="date" id="date" name="date" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="category" class="form-label">Category:</label>
+                <select id="category" name="category" class="form-select" required>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Food">Food</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Education">Education</option>
+                    <option value="Travel expenses">Travel expenses</option>
+                    <option value="Gifts">Gifts</option>
+                    <option value="Rent">Rent</option>
+                    <option value="Subscriptions">Subscriptions</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="income" class="form-label">Income:</label>
+                <input type="number" id="income" name="income" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label for="spent" class="form-label">Spent:</label>
+                <input type="number" id="spent" name="spent" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label for="payment_method" class="form-label">Payment Method:</label>
+                <select id="payment_method" name="payment_method" class="form-select" required>
+                    <option value="Online">Online</option>
+                    <option value="Cash">Cash</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="notes" class="form-label">Notes:</label>
+                <textarea id="notes" name="notes" class="form-control"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Transaction</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    let isEditing = false;
+    let editTransactionId = null;
+
+    function openPopup() {
+        document.getElementById("popup").style.display = "block";
+    }
+
+    function closePopup() {
+        document.getElementById("popup").style.display = "none";
+        document.getElementById("transactionForm").reset();
+        document.getElementById("transactionForm").action = "{{ url_for('add_transaction') }}";
+        isEditing = false;
+        editTransactionId = null;
+    }
+
+    function editTransaction(button) {
+        const row = button.closest("tr");
+        const transaction = JSON.parse(row.dataset.transaction);
+
+        document.getElementById("date").value = transaction[5];
+        document.getElementById("category").value = transaction[4];
+        document.getElementById("income").value = transaction[2] || "";
+        document.getElementById("spent").value = transaction[3] || "";
+        document.getElementById("payment_method").value = transaction[7];
+        document.getElementById("notes").value = transaction[6];
+
+        document.getElementById("transactionForm").action = `/edit_transaction/${transaction[0]}`;
+        openPopup();
+
+        isEditing = true;
+        editTransactionId = transaction[0];
+    }
+
+    function downloadCSV() {
+        const rows = document.querySelectorAll('table tbody tr');
+        let csvContent = 'Date,Category,Income,Spent,Payment Method,Notes\n';
+        rows.forEach(row => {
+            const columns = row.querySelectorAll('td');
+            const rowData = Array.from(columns).map(column => column.textContent.replace(/\n/g, '').replace('₹', ''));
+            csvContent += rowData.join(',') + '\n';
+        });
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = window.URL.createObjectURL(blob);
+        a.download = 'transactions.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function filterTransactions() {
+        const category = document.getElementById('categoryFilter').value;
+        const rows = document.querySelectorAll('table tbody tr');
+
+        rows.forEach(row => {
+            const rowCategory = row.cells[1].textContent;
+            if (category === '' || rowCategory === category) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function resetFilter() {
+        document.getElementById('categoryFilter').value = '';
+        const rows = document.querySelectorAll('table tbody tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+    }
+</script>
+{% endblock %}

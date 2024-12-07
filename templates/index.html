@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Home - Finance Tracker
+{% endblock %}
+
+{% block content %}
+<div class="row mt-4">
+    <h2>Welcome, {{ username }}!</h2>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Online Transactions</h5>
+                <h6 class="card-subtitle mb-2 text-muted">₹{{ total_upi }}</h6>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Cash Transactions</h5>
+                <h6 class="card-subtitle mb-2 text-muted">₹{{ total_cash }}</h6>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mt-4">
+        <div class="card">
+            <div class="card-header">
+                Amount Spent Each Day (This Month)
+            </div>
+            <div class="card-body">
+                <canvas id="dailySpendingChart" width="200" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mt-4">
+        <div class="card">
+            <div class="card-header">
+                Amount Spent Each Month
+            </div>
+            <div class="card-body">
+                <canvas id="monthlySpendingChart" width="200" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mt-4">
+        <div class="card">
+            <div class="card-header">
+                Spending by Category (This Month)
+            </div>
+            <div class="card-body">
+                <canvas id="categorySpendingChart" width="200" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mt-4">
+        <div class="card">
+            <div class="card-header">
+                Income vs Expenditure Comparison
+            </div>
+            <div class="card-body">
+                <canvas id="incomeVsExpenditureChart" width="200" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+<script>
+    // Function to fetch and render the monthly spending chart
+    function fetchMonthlySpendingData() {
+        fetch('/monthly_spending_data')
+            .then(response => response.json())
+            .then(data => {
+                renderMonthlySpendingChart(data);
+            });
+    }
+
+    function renderMonthlySpendingChart(data) {
+        const ctx = document.getElementById('monthlySpendingChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Amount Spent',
+                    data: data.income,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Function to fetch and render the daily spending chart
+    function fetchDailySpendingData() {
+        fetch('/daily_spending_data')
+            .then(response => response.json())
+            .then(data => {
+                renderDailySpendingChart(data);
+            });
+    }
+
+    function renderDailySpendingChart(data) {
+        const ctx = document.getElementById('dailySpendingChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Amount Spent',
+                    data: data.income,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Function to fetch and render the category spending chart
+    function fetchCategorySpendingData() {
+        fetch('/category_spending_data')
+            .then(response => response.json())
+            .then(data => {
+                renderCategorySpendingChart(data);
+            });
+    }
+
+    function renderCategorySpendingChart(data) {
+        const ctx = document.getElementById('categorySpendingChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(255, 159, 64, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Spending by Category'
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        formatter: (value, ctx) => {
+                            const label = ctx.chart.data.labels[ctx.dataIndex];
+                            const total = ctx.dataset.data.reduce((acc, val) => acc + val, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${percentage}%`;
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: 14
+                        }
+                    }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    // Function to fetch and render the income vs expenditure chart
+    function fetchIncomeVsExpenditureData() {
+        fetch('/income_vs_expenditure_data')
+            .then(response => response.json())
+            .then(data => {
+                renderIncomeVsExpenditureChart(data);
+            });
+    }
+
+    function renderIncomeVsExpenditureChart(data) {
+        const ctx = document.getElementById('incomeVsExpenditureChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Income', 'Spent'],
+                datasets: [{
+                    label: 'Amount',
+                    data: [data.income, data.spent],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(255, 99, 132, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Income vs Spent'
+                    }
+                }
+            }
+        });
+    }
+
+    // Fetch data and render charts when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchMonthlySpendingData();
+        fetchDailySpendingData();
+        fetchCategorySpendingData();
+        fetchIncomeVsExpenditureData();
+    });
+</script>
+
+{% endblock %}
